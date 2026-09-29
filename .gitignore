@@ -1,0 +1,34 @@
+# Java
+target/
+*.class
+
+# Maven
+.mvn/wrapper/maven-wrapper.jar
+
+# IntelliJ
+.idea/
+*.iml
+
+# VS Code
+.vscode/
+
+# macOS
+.DS_Store
+
+# Node
+node_modules/
+.next/
+out/
+dist/
+*.log
+
+# Environment files
+.env
+.env.*
+!.env.example
+
+# Build
+build/
+
+# Kubernetes secrets
+k8s/secrets.yaml
