@@ -1,36 +1,3 @@
-```{=html}
-<p align="center">
-```
-`<picture>`{=html}
-`<source media="(prefers-color-scheme: light)" srcset="https://socialify.git.ci/hoangtien2k3/ecommerce-microservices/image?description=1&descriptionEditable=%E2%9A%A1%EF%B8%8F%208%20Microservices%20%E2%80%A2%20Spring%20Boot%203%20%E2%80%A2%20Kubernetes&font=Inter&forks=1&language=1&logo=https%3A%2F%2Fi.ibb.co%2FN366vtQ%2Fhoangtien2k3.png&owner=1&pattern=Floating%20Cogs&pulls=1&stargazers=1&theme=Light"/>`{=html}
-`<source media="(prefers-color-scheme: dark)" srcset="https://socialify.git.ci/hoangtien2k3/ecommerce-microservices/image?description=1&descriptionEditable=%E2%9A%A1%EF%B8%8F%208%20Microservices%20%E2%80%A2%20Spring%20Boot%203%20%E2%80%A2%20Kubernetes&font=Inter&forks=1&language=1&logo=https%3A%2F%2Fi.ibb.co%2FN366vtQ%2Fhoangtien2k3.png&owner=1&pattern=Floating%20Cogs&pulls=1&stargazers=1&theme=Dark"/>`{=html}
-`<img alt="ecommerce-microservices" src="https://socialify.git.ci/hoangtien2k3/ecommerce-microservices/image?description=1&descriptionEditable=%E2%9A%A1%EF%B8%8F%208%20Microservices%20%E2%80%A2%20Spring%20Boot%203%20%E2%80%A2%20Kubernetes&font=Inter&forks=1&language=1&logo=https%3A%2F%2Fi.ibb.co%2FN366vtQ%2Fhoangtien2k3.png&owner=1&pattern=Floating%20Cogs&pulls=1&stargazers=1&theme=Auto"/>`{=html}
-`</picture>`{=html}
-```{=html}
-</p>
-```
-```{=html}
-<p align="center">
-```
-`<a href="https://sonarcloud.io/project/configuration?id=hoangtien2k3_ecommerce-microservices">`{=html}
-`<img src="https://sonarcloud.io/api/project_badges/measure?project=hoangtien2k3_ecommerce-microservices&metric=alert_status" alt="Quality Gate">`{=html}
-`</a>`{=html}
-`<a href="https://sonarcloud.io/project/configuration?id=hoangtien2k3_ecommerce-microservices">`{=html}
-`<img src="https://sonarcloud.io/api/project_badges/measure?project=hoangtien2k3_ecommerce-microservices&metric=sqale_index" alt="Maintainability">`{=html}
-`</a>`{=html} `<a href="LICENSE">`{=html}
-`<img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="License">`{=html}
-`</a>`{=html}
-`<a href="https://github.com/hoangtien2k3/ecommerce-microservices/releases">`{=html}
-`<img src="https://img.shields.io/github/v/release/hoangtien2k3/ecommerce-microservices" alt="Release">`{=html}
-`</a>`{=html}
-`<a href="https://github.com/hoangtien2k3/ecommerce-microservices/stargazers">`{=html}
-`<img src="https://img.shields.io/github/stars/hoangtien2k3/ecommerce-microservices?style=social" alt="Stars">`{=html}
-`</a>`{=html}
-```{=html}
-</p>
-```
-
-------------------------------------------------------------------------
 
 ## 📋 Overview
 
