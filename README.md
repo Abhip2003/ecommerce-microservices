@@ -3,7 +3,7 @@
 
 **ecommerce-microservices** is a cloud-native e-commerce platform built
 using a microservice architecture. The backend is organized into **8
-Spring Boot 3 microservices**, with an **Apache APISIX** API Gateway, a
+Spring Boot 3 microservices**, with an API Gateway, a
 **Next.js 16** frontend, and supporting infrastructure deployable on
 **Kubernetes (k3d)**.
 
@@ -16,9 +16,8 @@ inventory, shipping, ratings, search, and notifications.
   🚪 **Gateway**     Apache APISIX 3.9 · Rate limiting · JWT validation
   🗄️ **Databases**   PostgreSQL 16 · Elasticsearch 8
   📨 **Messaging**   Apache Kafka 3.9 (KRaft mode)
-  🔐 **Auth**        Keycloak 26 · OAuth2 / OIDC · JWT
-  ☁️ **Storage**     RustFS (S3-compatible object storage)
-  🐳 **Deploy**      Docker Compose · k3d / Kubernetes · ArgoCD
+  🔐 **Auth**        OAuth2 / OIDC · JWT
+  🐳 **Deploy**      Docker Compose · k3d / Kubernetes
   ------------------ ----------------------------------------------------
 
 ------------------------------------------------------------------------
