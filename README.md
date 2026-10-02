@@ -674,13 +674,8 @@ Spring Data JPA
 PostgreSQL
 Apache Kafka
 Elasticsearch
-Apache APISIX
-Keycloak
 Docker
 Kubernetes
-k3d
-ArgoCD
-GitHub Actions
 Next.js
 React
 ```
