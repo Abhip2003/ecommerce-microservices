@@ -1,1268 +1,178 @@
-## 📋 Overview
+# E-Commerce Microservices Platform
 
-**ecommerce-microservices** is a cloud-native e-commerce platform built
-using a microservice architecture. The backend is organized into **8
-Spring Boot 3 microservices**, with an API Gateway, a
-**Next.js 16** frontend, and supporting infrastructure deployable on
-**Kubernetes (k3d)**.
+A distributed e-commerce application built with **Java 21, Spring Boot, Next.js, Apache APISIX, Apache Kafka, and PostgreSQL**. The system uses eight backend microservices, with Kafka coordinating asynchronous order, inventory, payment, and notification workflows.
 
-The platform separates major e-commerce responsibilities into
-independently deployable services for products, orders, payments,
-inventory, shipping, ratings, search, and notifications.
+## Architecture
 
- ------------------ ----------------------------------------------------
- ⚡ **Backend** 8 microservices · Java 21 · Spring Boot 3.3.5
- 🚪 **Gateway** Apache APISIX 3.9 · Rate limiting · JWT validation
- 🗄️ **Databases** PostgreSQL 16
- 📨 **Messaging** Apache Kafka 3.9 (KRaft mode)
- 🔐 **Auth** OAuth2 / OIDC · JWT
- 🐳 **Deploy** Docker Compose · k3d / Kubernetes
- ------------------ ----------------------------------------------------
+```mermaid
+flowchart TB
+    User[User / Browser] --> Frontend[Next.js Frontend]
+    Frontend -->|HTTPS / REST APIs| Gateway[Apache APISIX API Gateway]
+    Gateway -.->|Client Response| Frontend
 
-------------------------------------------------------------------------
+    Gateway --> Product[Product Service]
+    Gateway --> Order[Order Service]
+    Gateway --> Shipping[Shipping Service]
+    Gateway --> Rating[Rating Service]
+    Gateway --> Search[Search Service]
 
-## 🧩 Microservices
+    Product --> ProductDB[(Product DB<br/>PostgreSQL)]
+    Product --> RustFS[(RustFS Object Storage<br/>Product Images)]
+    Order --> OrderDB[(Order DB<br/>PostgreSQL)]
+    Shipping --> ShippingDB[(Shipping DB<br/>PostgreSQL)]
+    Rating --> RatingDB[(Rating DB<br/>PostgreSQL)]
+    Search --> SearchDB[(Search DB<br/>Elasticsearch)]
 
-The project contains the following backend services:
+    Order <--> |Kafka Events| Kafka[(Apache Kafka)]
+    Kafka <--> |Kafka Events| Inventory[Inventory Service]
+    Kafka <--> |Kafka Events| Payment[Payment Service]
+    Kafka -->|Notification Event| Notification[Notification Service]
 
- -----------------------------------------------------------------------------
- Service Port Responsibility
- -------------------------- ---------------------------- ---------------------
- 📦 **inventory-service** 8082 Product stock and
- inventory management
+    Inventory --> InventoryDB[(Inventory DB<br/>PostgreSQL)]
+    Payment --> PaymentDB[(Payment DB<br/>PostgreSQL)]
+    Notification --> NotificationDB[(Notification DB<br/>PostgreSQL)]
+    Notification --> Channels[Email / SMS / Push]
 
- 🔔 8090 Notifications and
- **notification-service** email communication
+    classDef core fill:#082f49,stroke:#0ea5e9,color:#ffffff
+    classDef async fill:#3b2500,stroke:#f59e0b,color:#ffffff
+    classDef storage fill:#082f49,stroke:#06b6d4,color:#ffffff
 
- 🛒 **order-service** 8084 Cart and order
- management
-
- 💳 **payment-service** 8085 Payment processing
- and payment status
-
- 🏷️ **product-service** 8086 Products and
- categories
-
- ⭐ **rating-service** 8089 Product ratings and
- reviews
-
- 🔎 **search-service** 8094 Product search using
-
- 🚚 **shipping-service** 8087 Shipment and shipping
- management
- -----------------------------------------------------------------------------
-
-------------------------------------------------------------------------
-
-## 🛠️ Technology Stack
-
-### Backend
-
- ----------------------------------- -----------------------------------
- **Runtime** Java 21
-
- **Framework** Spring Boot 3.3.5, Spring Security
- 6, Spring Data JPA
-
- **Database** PostgreSQL 16, Liquibase migrations
-
- **Search** 
-
- **Messaging** Apache Kafka 3.9 (KRaft), Spring
- Kafka
-
- **Security** Keycloak 26, OAuth2 / OIDC, JWT,
- Spring Security Resource Server
-
- **Gateway** Apache APISIX 3.9
-
- **Storage** RustFS (S3-compatible object
- storage)
-
- **Observability** Micrometer, Prometheus, Spring Boot
- Actuator
-
- **API Docs** Springdoc OpenAPI 3, Swagger UI
-
- **Resilience** Resilience4j
-
- **Build** Maven, Jib
- ----------------------------------- -----------------------------------
-
-### Frontend
-
- --------------- ------------------------------
- **Framework** Next.js 16.2, React 19.2
- **State** Zustand 5, TanStack Query 5
- **Styling** Tailwind CSS 4, Lucide Icons
- **HTTP** Axios
- --------------- ------------------------------
-
-### Infrastructure
-
- ---------------------- ---------------------------
- **Containerization** Docker
- **Local Kubernetes** k3d / K3s
- **Ingress** NGINX Ingress Controller
- **API Gateway** Apache APISIX
- **Deployment** Kubernetes
- **GitOps** ArgoCD
- **Registry** GitHub Container Registry
- **CI** GitHub Actions
- **Code Quality** SonarCloud
- ---------------------- ---------------------------
-
-------------------------------------------------------------------------
-
-## 🏗️ Architecture
-
-### System Architecture
-
-![System Architecture](architecture-kafka.png)
-
-``` text
- Browser
- |
- v
- Next.js Frontend
- |
- REST + JWT
- |
- v
- +-------------------+
- | Apache APISIX |
- | API Gateway |
- +-------------------+
- |
- +-------------------+-------------------+
- | | | | |
- v v v v v
- Product Order Payment Inventory Shipping
- Service Service Service Service Service
- | | | | |
- +---------+---------+---------+---------+
- |
- PostgreSQL
- |
- +-------------------+-------------------+
- | | |
- v v v
- Rating Service Notification Service Search Service
- | |
- v v
- Kafka 
- |
- v
- SMTP
-
- Keycloak
- |
- v
- JWT Auth
-
- RustFS
- |
- v
- Media / Object Storage
+    class Frontend,Gateway,Product,Order,Shipping,Rating,Search,Inventory,Payment,Notification core
+    class Kafka async
+    class ProductDB,OrderDB,ShippingDB,RatingDB,SearchDB,InventoryDB,PaymentDB,NotificationDB,RustFS storage
 ```
 
-------------------------------------------------------------------------
+### Architecture Overview
 
-## 🔄 Service Communication
+- **Frontend:** Next.js provides the user interface.
+- **API Gateway:** Apache APISIX routes REST requests to backend services.
+- **Microservices:** Eight independent services handle different e-commerce responsibilities.
+- **Messaging:** Apache Kafka enables asynchronous communication between Order, Inventory, Payment, and Notification services.
+- **Databases:** PostgreSQL stores service data, while Elasticsearch supports product search.
+- **Object Storage:** RustFS stores product images and other supported files.
+
+## Microservices
+
+| Service | Responsibility |
+|---|---|
+| `product-service` | Manages products and categories |
+| `order-service` | Creates orders and coordinates order processing |
+| `inventory-service` | Manages stock and inventory reservations |
+| `payment-service` | Processes payments and tracks payment status |
+| `shipping-service` | Manages shipments |
+| `rating-service` | Manages product ratings and reviews |
+| `search-service` | Provides product search using Elasticsearch |
+| `notification-service` | Sends notifications through supported channels |
+
+## Technology Stack
+
+- **Backend:** Java 21, Spring Boot, Spring Security, Spring Data JPA
+- **Frontend:** Next.js, React
+- **API Gateway:** Apache APISIX
+- **Messaging:** Apache Kafka
+- **Database:** PostgreSQL
+- **Object Storage:** RustFS
+- **Containerization:** Docker, Docker Compose
+- **Monitoring:** Spring Boot Actuator, Micrometer
+- **Resilience:** Resilience4j
+- **Build Tool:** Maven
+
+## Service Communication
 
 ### Synchronous Communication
 
-Services communicate synchronously using REST APIs.
+The frontend sends REST requests through Apache APISIX. The gateway routes each request to the appropriate backend service and returns the response.
 
-``` text
-Order Service
- |
- | REST / HTTP
- v
-Product Service
-```
+### Asynchronous Communication with Kafka
 
-Spring `RestClient` is used for service-to-service HTTP communication.
+Order, Inventory, and Payment communicate through Kafka events during the order-processing workflow.
 
-### Asynchronous Communication
+1. **Order Created:** Order Service publishes an event containing order details.
+2. **Reserve Inventory:** Inventory Service consumes the relevant event and processes the stock reservation.
+3. **Inventory Result:** Inventory Service publishes the reservation result.
+4. **Process Payment:** Order Service initiates payment processing through a Kafka event.
+5. **Payment Result:** Payment Service publishes the payment success or failure result.
+6. **Order Update:** Order Service processes the result and updates the order status.
+7. **Send Notification:** Kafka delivers a notification event to Notification Service.
+8. **Notification Sent:** Notification Service processes the notification and publishes the result event.
 
-Apache Kafka is used for asynchronous event communication.
+This event-driven approach reduces direct dependencies between services. Exact event names, retry handling, and compensation logic depend on the implementation.
 
-``` text
-Payment Service
- |
- | Payment Successful Event
- v
- Kafka
- |
- v
-Notification Service
- |
- +----> Database
- |
- +----> Email / SMTP
-```
+## Data Storage
 
-This allows notification processing to happen independently from the
-payment request.
+The architecture follows a service-owned data model:
 
-------------------------------------------------------------------------
+- **Product Service:** PostgreSQL and RustFS for product data and images.
+- **Order Service:** PostgreSQL for order data.
+- **Inventory Service:** PostgreSQL for stock information.
+- **Payment Service:** PostgreSQL for payment records.
+- **Shipping Service:** PostgreSQL for shipment data.
+- **Rating Service:** PostgreSQL for ratings and reviews.
+- **Search Service:** Elasticsearch for product search.
+- **Notification Service:** PostgreSQL for notification-related data.
 
-## 🔐 Authentication & Authorization
+Services should access their own data and exchange information through APIs or events instead of directly querying another service's database.
 
-Authentication is handled using **Keycloak** with OAuth2 / OpenID
-Connect.
-
-``` text
-User
- |
- v
-Keycloak
- |
- | JWT
- v
-Frontend
- |
- | Authorization: Bearer <JWT>
- v
-APISIX
- |
- v
-Spring Boot Services
-```
-
-Protected services validate JWT tokens using Spring Security OAuth2
-Resource Server.
-
-The architecture provides authentication at the gateway and service
-levels.
-
-------------------------------------------------------------------------
-
-## 🗄️ Database Architecture
-
-The backend follows a database-per-service approach using PostgreSQL.
-
-``` text
-PostgreSQL
-│
-├── inventory database
-├── order database
-├── payment database
-├── product database
-├── rating database
-├── shipping database
-└── notification database
-```
-
-Services access their own data through Spring Data JPA and Hibernate.
-
-Cross-service data is accessed through APIs rather than direct database
-access.
-
-### Search
-
-------------------------------------------------------------------------
-
-## 📨 Kafka Messaging & Saga Pattern
-
-Apache Kafka coordinates the distributed transaction between the **Order**, **Payment**, and
-**Inventory** services using a **Saga-based event-driven workflow**.
-
-```text
- Apache Kafka
- |
- +----------------+----------------+
- | | |
- v v v
- Order Service Payment Service Inventory Service
- | | |
- +----------------+----------------+
- |
- Saga Events
- |
- v
- Compensation Events
-```
-
-The order workflow is coordinated through Kafka events instead of a distributed database
-transaction.
-
-### Order Saga Flow
-
-```text
-Order Service
- |
- | Order Created
- v
- Kafka
- |
- v
-Inventory Service
- |
- | Stock Reserved
- v
- Kafka
- |
- v
-Payment Service
- |
- | Payment Successful
- v
- Kafka
- |
- v
-Order Service
- |
- | Order Confirmed
- v
- Completed
-```
-
-If a step fails, the Saga uses **compensating events** to undo previously completed actions.
-
-For example:
-
-```text
-Order Created
- ↓
-Stock Reserved
- ↓
-Payment Failed
- ↓
- Kafka
- ↓
-Release Stock
- ↓
-Order Cancelled
-```
-
-This approach avoids a distributed two-phase commit and allows each service to maintain its
-own database while achieving eventual consistency across the order, payment, and inventory
-workflow.
-
-## 🗂️ Object Storage
-
-**RustFS** provides S3-compatible object storage for files and media.
-
-``` text
-Application
- |
- v
-Media / Storage Layer
- |
- v
-RustFS
-```
-
-The project uses RustFS as the object storage layer without depending on
-a public cloud storage provider.
-
-------------------------------------------------------------------------
-
-## 🐳 Docker
-
-Docker is used to package the services and infrastructure into
-reproducible containers.
-
-The local environment can run the complete stack using Docker Compose.
-
-``` bash
-docker compose up
-```
-
-The stack includes the backend services, frontend, PostgreSQL, Kafka, Redis, RustFS, Keycloak, and APISIX.
-
-------------------------------------------------------------------------
-
-## ☸️ Kubernetes Deployment
-
-The application can also be deployed to Kubernetes using **k3d**.
-
-``` text
- Kubernetes Cluster
- |
- +---------------+---------------+
- | | |
- v v v
- APISIX Backend Frontend
- Services
- |
- +---------+---------+
- | | |
- v v v
- PostgreSQL Kafka 
-```
-
-Kubernetes Services provide internal service discovery, while NGINX
-Ingress exposes the application externally.
-
-------------------------------------------------------------------------
-
-
-## 📋 Overview
-
-**ecommerce-microservices** is a cloud-native e-commerce platform built
-using a microservice architecture. The backend is organized into **8
-Spring Boot 3 microservices**, with an API Gateway, a
-**Next.js 16** frontend, and supporting infrastructure deployable on
-**Kubernetes (k3d)**.
-
-The platform separates major e-commerce responsibilities into
-independently deployable services for products, orders, payments,
-inventory, shipping, ratings, search, and notifications.
-
- ------------------ ----------------------------------------------------
- ⚡ **Backend** 8 microservices · Java 21 · Spring Boot 3.3.5
- 🚪 **Gateway** Apache APISIX 3.9 · Rate limiting · JWT validation
- 🗄️ **Databases** PostgreSQL 16
- 📨 **Messaging** Apache Kafka 3.9 (KRaft mode)
- 🔐 **Auth** OAuth2 / OIDC · JWT
- 🐳 **Deploy** Docker Compose · k3d / Kubernetes
- ------------------ ----------------------------------------------------
-
-------------------------------------------------------------------------
-
-## 🧩 Microservices
-
-The project contains the following backend services:
-
- -----------------------------------------------------------------------------
- Service Port Responsibility
- -------------------------- ---------------------------- ---------------------
- 📦 **inventory-service** 8082 Product stock and
- inventory management
-
- 🔔 8090 Notifications and
- **notification-service** email communication
-
- 🛒 **order-service** 8084 Cart and order
- management
-
- 💳 **payment-service** 8085 Payment processing
- and payment status
-
- 🏷️ **product-service** 8086 Products and
- categories
-
- ⭐ **rating-service** 8089 Product ratings and
- reviews
-
- 🔎 **search-service** 8094 Product search using
-
- 🚚 **shipping-service** 8087 Shipment and shipping
- management
- -----------------------------------------------------------------------------
-
-------------------------------------------------------------------------
-
-## 🛠️ Technology Stack
-
-### Backend
-
- ----------------------------------- -----------------------------------
- **Runtime** Java 21
-
- **Framework** Spring Boot 3.3.5, Spring Security
- 6, Spring Data JPA
-
- **Database** PostgreSQL 16, Liquibase migrations
-
- **Search** 
-
- **Messaging** Apache Kafka 3.9 (KRaft), Spring
- Kafka
-
- **Security** Keycloak 26, OAuth2 / OIDC, JWT,
- Spring Security Resource Server
-
- **Gateway** Apache APISIX 3.9
-
- **Storage** RustFS (S3-compatible object
- storage)
-
- **Observability** Micrometer, Prometheus, Spring Boot
- Actuator
-
- **API Docs** Springdoc OpenAPI 3, Swagger UI
-
- **Resilience** Resilience4j
-
- **Build** Maven, Jib
- ----------------------------------- -----------------------------------
-
-### Frontend
-
- --------------- ------------------------------
- **Framework** Next.js 16.2, React 19.2
- **State** Zustand 5, TanStack Query 5
- **Styling** Tailwind CSS 4, Lucide Icons
- **HTTP** Axios
- --------------- ------------------------------
-
-### Infrastructure
-
- ---------------------- ---------------------------
- **Containerization** Docker
- **Local Kubernetes** k3d / K3s
- **Ingress** NGINX Ingress Controller
- **API Gateway** Apache APISIX
- **Deployment** Kubernetes
- **Registry**
- **CI**
- **Code Quality** SonarCloud
- ---------------------- ---------------------------
-
-------------------------------------------------------------------------
-
-## 🏗️ Architecture
-
-### System Architecture
-
-![System Architecture](architecture-kafka.png)
-
-``` text
- Browser
- |
- v
- Next.js Frontend
- |
- REST + JWT
- |
- v
- +-------------------+
- | Apache APISIX |
- | API Gateway |
- +-------------------+
- |
- +-------------------+-------------------+
- | | | | |
- v v v v v
- Product Order Payment Inventory Shipping
- Service Service Service Service Service
- | | | | |
- +---------+---------+---------+---------+
- |
- PostgreSQL
- |
- +-------------------+-------------------+
- | | |
- v v v
- Rating Service Notification Service Search Service
- | |
- v v
- Kafka 
- |
- v
- SMTP
-
- Keycloak
- |
- v
- JWT Auth
-
- RustFS
- |
- v
- Media / Object Storage
-```
-
-------------------------------------------------------------------------
-
-## 🔄 Service Communication
-
-### Synchronous Communication
-
-Services communicate synchronously using REST APIs.
-
-``` text
-Order Service
- |
- | REST / HTTP
- v
-Product Service
-```
-
-Spring `RestClient` is used for service-to-service HTTP communication.
-
-### Asynchronous Communication
-
-Apache Kafka is used for asynchronous event communication.
-
-``` text
-Payment Service
- |
- | Payment Successful Event
- v
- Kafka
- |
- v
-Notification Service
- |
- +----> Database
- |
- +----> Email / SMTP
-```
-
-This allows notification processing to happen independently from the
-payment request.
-
-------------------------------------------------------------------------
-
-## 🔐 Authentication & Authorization
-
-Authentication is handled using **Keycloak** with OAuth2 / OpenID
-Connect.
-
-``` text
-User
- |
- v
-Keycloak
- |
- | JWT
- v
-Frontend
- |
- | Authorization: Bearer <JWT>
- v
-APISIX
- |
- v
-Spring Boot Services
-```
-
-Protected services validate JWT tokens using Spring Security OAuth2
-Resource Server.
-
-The architecture provides authentication at the gateway and service
-levels.
-
-------------------------------------------------------------------------
-
-## 🗄️ Database Architecture
-
-The backend follows a database-per-service approach using PostgreSQL.
-
-``` text
-PostgreSQL
-│
-├── inventory database
-├── order database
-├── payment database
-├── product database
-├── rating database
-├── shipping database
-└── notification database
-```
-
-Services access their own data through Spring Data JPA and Hibernate.
-
-Cross-service data is accessed through APIs rather than direct database
-access.
-
-### Search
-
-------------------------------------------------------------------------
-
-## 📨 Kafka Messaging & Saga Pattern
-
-Apache Kafka coordinates the distributed transaction between the **Order**, **Payment**, and
-**Inventory** services using a **Saga-based event-driven workflow**.
-
-```text
- Apache Kafka
- |
- +----------------+----------------+
- | | |
- v v v
- Order Service Payment Service Inventory Service
- | | |
- +----------------+----------------+
- |
- Saga Events
- |
- v
- Compensation Events
-```
-
-The order workflow is coordinated through Kafka events instead of a distributed database
-transaction.
-
-### Order Saga Flow
-
-```text
-Order Service
- |
- | Order Created
- v
- Kafka
- |
- v
-Inventory Service
- |
- | Stock Reserved
- v
- Kafka
- |
- v
-Payment Service
- |
- | Payment Successful
- v
- Kafka
- |
- v
-Order Service
- |
- | Order Confirmed
- v
- Completed
-```
-
-If a step fails, the Saga uses **compensating events** to undo previously completed actions.
-
-For example:
-
-```text
-Order Created
- ↓
-Stock Reserved
- ↓
-Payment Failed
- ↓
- Kafka
- ↓
-Release Stock
- ↓
-Order Cancelled
-```
-
-This approach avoids a distributed two-phase commit and allows each service to maintain its
-own database while achieving eventual consistency across the order, payment, and inventory
-workflow.
-
-## 🗂️ Object Storage
-
-**RustFS** provides S3-compatible object storage for files and media.
-
-``` text
-Application
- |
- v
-Media / Storage Layer
- |
- v
-RustFS
-```
-
-The project uses RustFS as the object storage layer without depending on
-a public cloud storage provider.
-
-------------------------------------------------------------------------
-
-## 🐳 Docker
-
-Docker is used to package the services and infrastructure into
-reproducible containers.
-
-The local environment can run the complete stack using Docker Compose.
-
-``` bash
-docker compose up
-```
-
-The stack includes the backend services, frontend, PostgreSQL, Kafka, Redis, RustFS, Keycloak, and APISIX.
-
-------------------------------------------------------------------------
-
-## ☸️ Kubernetes Deployment
-
-The application can also be deployed to Kubernetes using **k3d**.
-
-``` text
- Kubernetes Cluster
- |
- +---------------+---------------+
- | | |
- v v v
- APISIX Backend Frontend
- Services
- |
- +---------+---------+
- | | |
- v v v
- PostgreSQL Kafka 
-```
-
-Kubernetes Services provide internal service discovery, while NGINX
-Ingress exposes the application externally.
-
-------------------------------------------------------------------------
-
-------------------------------------------------------------------------
-
-## 📊 Observability
-
-Services expose Spring Boot Actuator endpoints for health and metrics.
-
-### Health
-
-``` text
-/actuator/health
-```
-
-### Prometheus Metrics
-
-``` text
-/actuator/prometheus
-```
-
-### Correlation ID
-
-Requests can be traced across services using:
-
-``` text
-X-Correlation-Id
-```
-
-APISIX also exposes Prometheus metrics.
-
-------------------------------------------------------------------------
-
-## 🚀 Quick Start
+## Running Locally
 
 ### Prerequisites
 
-- Docker Desktop on macOS / Windows
-- Docker Engine on Linux
-- 8 GB+ RAM allocated to Docker
+- Docker Desktop on macOS or Windows, or Docker Engine on Linux
 - Git
 
-### Kubernetes Setup
+### Start the Application
 
-Clone the repository:
-
-``` bash
-git clone https://github.com/hoangtien2k3/ecommerce-microservices.git
+```bash
+git clone https://github.com/Abhip2003/ecommerce-microservices.git
 cd ecommerce-microservices
+docker compose up --build
 ```
 
-Run the setup script:
+Use the repository's Docker Compose configuration as the source of truth for service names, ports, environment variables, and dependencies.
 
-``` bash
-bash start-ecommerce.sh
+### Stop the Application
+
+```bash
+docker compose down
 ```
 
-The setup process creates the local Kubernetes cluster and deploys the
-required infrastructure and services.
+Avoid removing named volumes unless you intentionally want to delete persisted database data.
 
-Check pod status:
+## Monitoring and Reliability
 
-``` bash
-kubectl get pods -n ecommerce -w
-```
+- **Spring Boot Actuator:** Exposes application health endpoints.
+- **Micrometer and Prometheus:** Support metrics collection.
+- **Correlation IDs:** Help trace requests across services.
+- **Resilience4j:** Provides resilience patterns for supported service calls.
 
-------------------------------------------------------------------------
+## Key Features
 
-## 🌐 URLs
-
- --------------------------------------------------------------------------------------------
- Service URL
- ----------------------------------- --------------------------------------------------------
- 🏠 **Frontend** `http://ecommerce.local`
-
- 🚪 **API Gateway** `http://api.ecommerce.local`
-
- 🔐 **Keycloak Admin** `http://keycloak.ecommerce.local/admin/master/console`
-
- 📦 **RustFS Console** `http://rustfs.ecommerce.local/rustfs/console/`
- --------------------------------------------------------------------------------------------
-
-------------------------------------------------------------------------
-
-## 📁 Project Structure
-
-``` text
-ecommerce-microservices/
-│
-├── inventory-service/
-├── notification-service/
-├── order-service/
-├── payment-service/
-├── product-service/
-├── rating-service/
-├── shipping-service/
-│
-├── common-lib/
-│ ├── common-core/
-│ ├── common-spring/
-│ ├── common-security/
-│ ├── common-keycloak/
-│ ├── common-kafka/
-│ ├── common-logging/
-│ └── common-storage/
-│
-├── frontend/
-│
-├── deploy/
-│ └── apisix/
-│
-├── docker/
-│ └── postgres/
-│
-├── k8s/
-│ ├──/
-│ ├── backend/
-│ ├── frontend/
-│ ├── gateway/
-│ ├── infra/
-│ ├── ingress/
-│ ├── configmap.yaml
-│ ├── namespace.yaml
-│ └── secrets.yaml
-│
-├── docker-compose.yml
-├── k3d-config.yaml
-├── k3d-setup.sh
-├── Makefile
-├── pom.xml
-└── start-ecommerce.sh
-```
-
-------------------------------------------------------------------------
-
-## 🎯 Key Features
-
-- 8 independent Spring Boot microservices
-- REST-based service-to-service communication
+- Eight independent Spring Boot microservices
 - Apache APISIX API Gateway
-- Keycloak OAuth2 / OIDC authentication
-- JWT-based authorization
-- PostgreSQL database-per-service architecture
-- - Kafka asynchronous messaging and Saga-based transaction coordination
-- RustFS S3-compatible object storage
-- Docker containerization
-- Kubernetes deployment with k3d
--
--
-- Prometheus-compatible metrics
-- Spring Boot Actuator health checks
-- Correlation ID propagation
-- Resilience4j-based resilience
+- Kafka-based asynchronous communication
+- Event-driven order, inventory, and payment workflow
+- Service-owned PostgreSQL databases
+- RustFS object storage
+- Docker Compose local environment
+- Health checks, metrics, and resilience support
 
-------------------------------------------------------------------------
-
-## ⚖️ Architecture Trade-offs
+## Architecture Trade-offs
 
 ### Benefits
 
-- Independent service deployment
-- Clear separation of business responsibilities
-- Services can scale independently
-- Failure isolation between services
-- Technology-specific infrastructure such as for search
-- Centralized API gateway and authentication
-- Kubernetes-based deployment
+- Clear separation of business responsibilities.
+- Reduced direct coupling through Kafka events.
+- Independent service maintenance and potential scaling.
+- Separate data ownership for each service.
 
 ### Challenges
 
-- Distributed service communication
-- Network failures and latency
-- More complicated debugging
-- Distributed data consistency
-- Multiple databases and migrations
-- Increased deployment and operational complexity
+- Distributed workflows require careful failure and retry handling.
+- Duplicate events and eventual consistency need consideration.
+- Multiple services increase debugging and operational complexity.
 
-For a small application, a modular monolith can be simpler.
-Microservices become more useful when independent deployment, scaling,
-team ownership, and service isolation justify the additional complexity.
+Docker Compose is used for local development. Kubernetes is not required for this setup.
 
-------------------------------------------------------------------------
-
-## 📌 Architecture Summary
-
-``` text
-Frontend
- |
- v
-Apache APISIX
- |
- +---- Product Service
- +---- Order Service
- +---- Payment Service
- +---- Inventory Service
- +---- Shipping Service
- +---- Rating Service
- +---- Search Service
- +---- Notification Service
- |
- v
- Kafka
- |
- v
- Email
-
-Infrastructure:
-PostgreSQL + Kafka + Keycloak
- |
- v
- Kubernetes / k3d
- |
-```
-
-### Core Stack
-
-``` text
-Java 21
-Spring Boot 3.3.5
-Spring Security
-Spring Data JPA
-PostgreSQL
-Apache Kafka
-Docker
-Kubernetes
-Next.js
-React
-```
-
-------------------------------------------------------------------------
-
-## 📄 License
-
-This project is licensed under the MIT License.
-
-
-------------------------------------------------------------------------
-
-## 📊 Observability
-
-Services expose Spring Boot Actuator endpoints for health and metrics.
-
-### Health
-
-``` text
-/actuator/health
-```
-
-### Prometheus Metrics
-
-``` text
-/actuator/prometheus
-```
-
-### Correlation ID
-
-Requests can be traced across services using:
-
-``` text
-X-Correlation-Id
-```
-
-APISIX also exposes Prometheus metrics.
-
-------------------------------------------------------------------------
-
-## 🚀 Quick Start
-
-### Prerequisites
-
-- Docker Desktop on macOS / Windows
-- Docker Engine on Linux
-- 8 GB+ RAM allocated to Docker
-- Git
-
-### Kubernetes Setup
-
-Clone the repository:
-
-``` bash
-git clone https://github.com/hoangtien2k3/ecommerce-microservices.git
-cd ecommerce-microservices
-```
-
-Run the setup script:
-
-``` bash
-bash start-ecommerce.sh
-```
-
-The setup process creates the local Kubernetes cluster and deploys the
-required infrastructure and services.
-
-Check pod status:
-
-``` bash
-kubectl get pods -n ecommerce -w
-```
-
-------------------------------------------------------------------------
-
-## 🌐 URLs
-
- --------------------------------------------------------------------------------------------
- Service URL
- ----------------------------------- --------------------------------------------------------
- 🏠 **Frontend** `http://ecommerce.local`
-
- 🚪 **API Gateway** `http://api.ecommerce.local`
-
- 🔐 **Keycloak Admin** `http://keycloak.ecommerce.local/admin/master/console`
-
- 📦 **RustFS Console** `http://rustfs.ecommerce.local/rustfs/console/`
- --------------------------------------------------------------------------------------------
-
-------------------------------------------------------------------------
-
-## 📁 Project Structure
-
-``` text
-ecommerce-microservices/
-│
-├── inventory-service/
-├── notification-service/
-├── order-service/
-├── payment-service/
-├── product-service/
-├── rating-service/
-├── shipping-service/
-│
-├── common-lib/
-│ ├── common-core/
-│ ├── common-spring/
-│ ├── common-security/
-│ ├── common-keycloak/
-│ ├── common-kafka/
-│ ├── common-logging/
-│ └── common-storage/
-│
-├── frontend/
-│
-├── deploy/
-│ └── apisix/
-│
-├── docker/
-│ ├── keycloak/
-│ └── postgres/
-│
-├── k8s/
-│ ├── argocd/
-│ ├── backend/
-│ ├── frontend/
-│ ├── gateway/
-│ ├── infra/
-│ ├── ingress/
-│ ├── configmap.yaml
-│ ├── namespace.yaml
-│ └── secrets.yaml
-│
-├── docker-compose.yml
-├── k3d-config.yaml
-├── k3d-setup.sh
-├── Makefile
-├── pom.xml
-└── start-ecommerce.sh
-```
-
-------------------------------------------------------------------------
-
-## 🎯 Key Features
-
-- 8 independent Spring Boot microservices
-- REST-based service-to-service communication
-- Apache APISIX API Gateway
-- Keycloak OAuth2 / OIDC authentication
-- JWT-based authorization
-- PostgreSQL database-per-service architecture
-- - Kafka asynchronous messaging and Saga-based transaction coordination
-- RustFS S3-compatible object storage
-- Docker containerization
-- Kubernetes deployment with k3d
-- ArgoCD GitOps deployment
-- GitHub Actions CI pipeline
-- Prometheus-compatible metrics
-- Spring Boot Actuator health checks
-- Correlation ID propagation
-- Resilience4j-based resilience
-
-------------------------------------------------------------------------
-
-## ⚖️ Architecture Trade-offs
-
-### Benefits
-
-- Independent service deployment
-- Clear separation of business responsibilities
-- Services can scale independently
-- Failure isolation between services
-- Technology-specific infrastructure such as for search
-- Centralized API gateway and authentication
-- Kubernetes-based deployment
-
-### Challenges
-
-- Distributed service communication
-- Network failures and latency
-- More complicated debugging
-- Distributed data consistency
-- Multiple databases and migrations
-- Increased deployment and operational complexity
-
-For a small application, a modular monolith can be simpler.
-Microservices become more useful when independent deployment, scaling,
-team ownership, and service isolation justify the additional complexity.
-
-------------------------------------------------------------------------
-
-## 📌 Architecture Summary
-
-``` text
-Frontend
- |
- v
-Apache APISIX
- |
- +---- Product Service
- +---- Order Service
- +---- Payment Service
- +---- Inventory Service
- +---- Shipping Service
- +---- Rating Service
- +---- Search Service
- +---- Notification Service
- |
- v
- Kafka
- |
- v
- Email
-
-Infrastructure:
-PostgreSQL + Kafka + Keycloak
- |
- v
- Kubernetes / k3d
- |
- ArgoCD
-```
-
-### Core Stack
-
-``` text
-Java 21
-Spring Boot 3.3.5
-Spring Security
-Spring Data JPA
-PostgreSQL
-Apache Kafka
-Docker
-Kubernetes
-Next.js
-React
-```
-
-------------------------------------------------------------------------
-
-## 📄 License
+## License
 
 This project is licensed under the MIT License.
